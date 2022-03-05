@@ -30,23 +30,54 @@ def render(triangles: tf.Tensor, colors: tf.Tensor, width: int, height: int, nea
         background_depth = tf.pad(tf.squeeze(background_depth, -1), ((0, aligned_width - width), (0, aligned_height - height)), constant_values=np.Inf)
         background_depth = tf.cast(background_depth, dtype)
 
+    tile_indices = util.range_2d(aligned_width // tile_size, aligned_height // tile_size)
     tile_offsets = util.range_2d(aligned_width // tile_size, aligned_height // tile_size, tile_size)
+    tile_ends = tile_offsets + tile_size
+
+    boundaries_min, boundaries_max = util.boundaries(triangles)
+
+    tile_overlaps = util.intersects_tile(tile_offsets, tile_ends, boundaries_min, boundaries_max)
+    tile_overlaps = tf.map_fn(
+        lambda tile_overlaps_cols: tf.map_fn(
+            lambda tile_overlaps_cell: tf.squeeze(tf.where(tile_overlaps_cell), -1),
+            tile_overlaps_cols,
+            fn_output_signature=tf.RaggedTensorSpec(
+                shape=(None,),
+                dtype=tf.int64,
+            ),
+        ),
+        tile_overlaps,
+        fn_output_signature=tf.RaggedTensorSpec(
+            shape=(tile_overlaps.shape[1], None),
+            dtype=tf.int64,
+        ),
+    )
+
+    def render_tile(col, row):
+        tile_offset = tile_offsets[col][row]
+        overlaps = tile_overlaps[col][row]
+
+        overlap_triangles = tf.gather(triangles, overlaps)
+        overlap_planes = tf.gather(planes, overlaps)
+        overlap_colors = tf.gather(colors, overlaps)
+
+        return tri.render_triangles(
+            overlap_triangles, overlap_planes,
+            tile_offset, tile_size,
+            dtype,
+            near_limit, far_limit,
+            shader, overlap_colors,
+            background[tile_offset[0]:tile_offset[0] + tile_size, tile_offset[1]:tile_offset[1] + tile_size],
+            background_depth[tile_offset[0]:tile_offset[0] + tile_size, tile_offset[1]:tile_offset[1] + tile_size],
+        )
 
     color_image = tf.map_fn(
-        lambda tile_cols: tf.map_fn(
-            lambda tile_offset: tri.render_triangles(
-                triangles, planes,
-                tile_offset, tile_size,
-                dtype,
-                near_limit, far_limit,
-                shader, colors,
-                background[tile_offset[0]:tile_offset[0] + tile_size, tile_offset[1]:tile_offset[1] + tile_size],
-                background_depth[tile_offset[0]:tile_offset[0] + tile_size, tile_offset[1]:tile_offset[1] + tile_size],
-            ),
-            tile_cols,
+        lambda tile_col_indices: tf.map_fn(
+            lambda indices: render_tile(indices[0], indices[1]),
+            tile_col_indices,
             dtype=dtype,
         ),
-        tile_offsets,
+        tile_indices,
         dtype=dtype,
     )
     color_image = util.collate_images(color_image)

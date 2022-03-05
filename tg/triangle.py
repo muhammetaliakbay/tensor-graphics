@@ -19,7 +19,7 @@ def render_triangles(
     triangle_mask = util.in_triangle(triangles[:, :, 0:2], coordinates_xy)
 
     coordinates_z = util.depths(planes, coordinates_xy)
-    coordinates_xy_ = tf.tile(tf.expand_dims(coordinates_xy, 0), (coordinates_z.shape[0], 1, 1, 1))
+    coordinates_xy_ = tf.tile(tf.expand_dims(coordinates_xy, 0), (tf.shape(coordinates_z)[0], 1, 1, 1))
     coordinates = tf.concat((coordinates_xy_, tf.expand_dims(coordinates_z, -1)), -1)
 
     # triangle_mask = tf.logical_and(triangle_mask, coordinates_z >= near_limit)

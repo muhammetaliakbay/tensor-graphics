@@ -97,3 +97,22 @@ def collate_images(images):
         ),
         axis=0,
     )
+
+def boundaries(triangles):
+    min = tf.reduce_min(triangles[:, :, 0:2], -2)
+    max = tf.reduce_max(triangles[:, :, 0:2], -2)
+    return min, max
+
+def intersects_tile(tile_offsets, tile_ends, boundaries_min, boundaries_max):
+    _tile_offsets = tf.expand_dims(tile_offsets, -2)
+    _tile_ends = tf.expand_dims(tile_ends, -2)
+    _boundaries_min = tf.expand_dims(tf.expand_dims(tf.cast(tf.math.floor(boundaries_min), _tile_offsets.dtype), 0), 0)
+    _boundaries_max = tf.expand_dims(tf.expand_dims(tf.cast(tf.math.ceil(boundaries_max), _tile_ends.dtype), 0), 0)
+    
+    left_or_top = tf.reduce_any(_boundaries_max < _tile_offsets, -1)
+    right_or_bottom = tf.reduce_any(_boundaries_min > _tile_ends, -1)
+
+    no_overlap = left_or_top | right_or_bottom
+    overlap = ~no_overlap
+
+    return overlap
