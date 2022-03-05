@@ -5,14 +5,14 @@ import numpy as np
 @tf.function
 def render_triangles(
     triangles, planes,
-    boundary_offset, boundary_size,
+    tile_offset, tile_size,
     dtype,
     near_limit, far_limit,
     shader, colors,
     background, background_depth_slice,
 ):
     coordinates_xy = tf.cast(
-        util.range_2d(boundary_size, boundary_size) + boundary_offset,
+        util.range_2d(tile_size, tile_size) + tile_offset,
         dtype,
     )
 
@@ -26,18 +26,18 @@ def render_triangles(
     # triangle_mask = tf.logical_and(triangle_mask, coordinates_z <= far_limit)
 
     if shader is None:
-        boundary_color_image = tf.expand_dims(vertex_weights, -1) * tf.expand_dims(tf.expand_dims(colors, 0), 0)
-        boundary_color_image = tf.reduce_sum(boundary_color_image, -2)
+        tile_color_image = tf.expand_dims(vertex_weights, -1) * tf.expand_dims(tf.expand_dims(colors, 0), 0)
+        tile_color_image = tf.reduce_sum(tile_color_image, -2)
     else:
-        boundary_color_image = shader(coordinates)
+        tile_color_image = shader(coordinates)
 
     vertex_weights = util.distanced_weights(triangles, coordinates)
 
     if shader is None:
-        boundary_color_image = tf.expand_dims(vertex_weights, -1) * tf.expand_dims(tf.expand_dims(colors, 0), 0)
-        boundary_color_image = tf.reduce_sum(boundary_color_image, -2)
+        tile_color_image = tf.expand_dims(vertex_weights, -1) * tf.expand_dims(tf.expand_dims(colors, 0), 0)
+        tile_color_image = tf.reduce_sum(tile_color_image, -2)
     else:
-        boundary_color_image = shader(coordinates)
+        tile_color_image = shader(coordinates)
     
     coordinates_depth = tf.where(triangle_mask, coordinates_z, np.inf)
     indices = tf.argmin(
@@ -51,15 +51,15 @@ def render_triangles(
         0,
     )
 
-    boundary_color_image = util.gather_images(
+    tile_color_image = util.gather_images(
         tf.concat(
             (
                 tf.expand_dims(background, 0),
-               boundary_color_image,
+               tile_color_image,
             ),
             0,
         ),
         indices,
     )
 
-    return boundary_color_image
+    return tile_color_image
