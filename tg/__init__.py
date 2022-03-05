@@ -5,8 +5,11 @@ import tg.util as util
 import tg.triangle as tri
 
 @tf.function(experimental_relax_shapes=True)
-def render(triangles: tf.Tensor, data: Iterable[tf.Tensor], width: int, height: int, near_limit: float, far_limit: float, vertex_shader = None, pixel_shader = None, dtype = tf.float32, background = None, background_depth = None):
+def render(triangles: tf.Tensor, data: Iterable[tf.Tensor], width: int, height: int, near_limit: float, far_limit: float, projection = None, vertex_shader = None, pixel_shader = None, dtype = tf.float32, background = None, background_depth = None):
     triangles = tf.cast(tf.ensure_shape(triangles, (None, 3, 3)), dtype)
+
+    if projection is not None:
+        triangles = projection(triangles)
 
     data = (*(tf.cast(tf.ensure_shape(data_item, (None, 3, 3)), dtype) for data_item in data),)
 
