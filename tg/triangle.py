@@ -4,7 +4,7 @@ import numpy as np
 
 @tf.function(experimental_relax_shapes=True)
 def render_triangles(
-    triangles, planes,
+    triangles, normals, planes,
     tile_offset, tile_size,
     dtype,
     near_limit, far_limit,
@@ -25,19 +25,13 @@ def render_triangles(
     # triangle_mask = tf.logical_and(triangle_mask, coordinates_z >= near_limit)
     # triangle_mask = tf.logical_and(triangle_mask, coordinates_z <= far_limit)
 
-    if shader is None:
-        tile_color_image = tf.expand_dims(vertex_weights, -1) * tf.expand_dims(tf.expand_dims(colors, 0), 0)
-        tile_color_image = tf.reduce_sum(tile_color_image, -2)
-    else:
-        tile_color_image = shader(coordinates)
-
     vertex_weights = util.distanced_weights(triangles, coordinates)
 
     if shader is None:
-        tile_color_image = tf.expand_dims(vertex_weights, -1) * tf.expand_dims(tf.expand_dims(colors, 0), 0)
-        tile_color_image = tf.reduce_sum(tile_color_image, -2)
+        tile_color_image = util.interpolate_triangle(vertex_weights, colors)
     else:
-        tile_color_image = shader(coordinates)
+        tile_normal_image = util.interpolate_triangle(vertex_weights, normals)
+        tile_color_image = shader(coordinates, tile_normal_image)
     
     coordinates_depth = tf.where(triangle_mask, coordinates_z, np.inf)
     indices = tf.argmin(

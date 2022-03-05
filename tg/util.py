@@ -116,3 +116,8 @@ def intersects_tile(tile_offsets, tile_ends, boundaries_min, boundaries_max):
     overlap = ~no_overlap
 
     return overlap
+
+def interpolate_triangle(vertex_weights, data):
+    weighted = tf.expand_dims(vertex_weights, -1) * tf.expand_dims(tf.expand_dims(data, 1), 1)
+    sum = tf.reduce_sum(weighted, -2)
+    return sum

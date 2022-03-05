@@ -4,8 +4,9 @@ import tg.util as util
 import tg.triangle as tri
 
 @tf.function(experimental_relax_shapes=True)
-def render(triangles: tf.Tensor, colors: tf.Tensor, width: int, height: int, near_limit: float, far_limit: float, shader = None, dtype = tf.float32, background = None, background_depth = None):
+def render(triangles: tf.Tensor, normals: tf.Tensor, colors: tf.Tensor, width: int, height: int, near_limit: float, far_limit: float, shader = None, dtype = tf.float32, background = None, background_depth = None):
     triangles = tf.cast(tf.ensure_shape(triangles, (None, 3, 3)), dtype)
+    normals = tf.cast(tf.ensure_shape(normals, (None, 3, 3)), dtype)
     planes = util.planes(triangles)
 
     colors = tf.cast(tf.ensure_shape(colors, (None, 3, 3)), dtype)
@@ -58,11 +59,12 @@ def render(triangles: tf.Tensor, colors: tf.Tensor, width: int, height: int, nea
         overlaps = tile_overlaps[col][row]
 
         overlap_triangles = tf.gather(triangles, overlaps)
+        overlap_normals = tf.gather(normals, overlaps)
         overlap_planes = tf.gather(planes, overlaps)
         overlap_colors = tf.gather(colors, overlaps)
 
         return tri.render_triangles(
-            overlap_triangles, overlap_planes,
+            overlap_triangles, overlap_normals, overlap_planes,
             tile_offset, tile_size,
             dtype,
             near_limit, far_limit,
