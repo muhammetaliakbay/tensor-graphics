@@ -36,6 +36,33 @@ def distanced_weights(triangles: tf.Tensor, points: tf.Tensor):
     weights = raw_weights / tf.expand_dims(raw_weight_totals, -1)
     return weights
 
+def barycentric_distanced_weights(triangles: tf.Tensor, points: tf.Tensor):
+    triangles = tf.expand_dims(tf.expand_dims(triangles, -1), -1)
+
+    w1 = (
+        (triangles[...,1,1,:,:] - triangles[...,2,1,:,:]) * (points[...,0] - triangles[...,2,0,:,:])
+        +
+        (triangles[...,2,0,:,:] - triangles[...,1,0,:,:]) * (points[...,1] - triangles[...,2,1,:,:])
+    ) / (
+        (triangles[...,1,1,:,:] - triangles[...,2,1,:,:]) * (triangles[...,0,0,:,:] - triangles[...,2,0,:,:])
+        +
+        (triangles[...,2,0,:,:] - triangles[...,1,0,:,:]) * (triangles[...,0,1,:,:] - triangles[...,2,1,:,:])
+    )
+
+    w2 = (
+        (triangles[...,2,1,:,:] - triangles[...,0,1,:,:]) * (points[...,0] - triangles[...,2,0,:,:])
+        +
+        (triangles[...,0,0,:,:] - triangles[...,2,0,:,:]) * (points[...,1] - triangles[...,2,1,:,:])
+    ) / (
+        (triangles[...,1,1,:,:] - triangles[...,2,1,:,:]) * (triangles[...,0,0,:,:] - triangles[...,2,0,:,:])
+        +
+        (triangles[...,2,0,:,:] - triangles[...,1,0,:,:]) * (triangles[...,0,1,:,:] - triangles[...,2,1,:,:])
+    )
+
+    w3 = 1 - w1 - w2
+
+    return tf.stack((w1, w2, w3), -1)
+
 def planes(triangles: tf.Tensor):
     v1 = triangles[:, 0] - triangles[:, 1]
     v2 = triangles[:, 0] - triangles[:, 2]

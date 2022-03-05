@@ -1,15 +1,23 @@
+from typing import Iterable
 import tensorflow as tf
 import numpy as np
 import tg.util as util
 import tg.triangle as tri
 
 @tf.function(experimental_relax_shapes=True)
-def render(triangles: tf.Tensor, normals: tf.Tensor, colors: tf.Tensor, width: int, height: int, near_limit: float, far_limit: float, shader = None, dtype = tf.float32, background = None, background_depth = None):
+def render(triangles: tf.Tensor, data: Iterable[tf.Tensor], width: int, height: int, near_limit: float, far_limit: float, vertex_shader = None, pixel_shader = None, dtype = tf.float32, background = None, background_depth = None):
     triangles = tf.cast(tf.ensure_shape(triangles, (None, 3, 3)), dtype)
-    normals = tf.cast(tf.ensure_shape(normals, (None, 3, 3)), dtype)
-    planes = util.planes(triangles)
 
-    colors = tf.cast(tf.ensure_shape(colors, (None, 3, 3)), dtype)
+    data = (*(tf.cast(tf.ensure_shape(data_item, (None, 3, 3)), dtype) for data_item in data),)
+
+    if vertex_shader is not None:
+        (triangles, *data) = vertex_shader(triangles, *data)
+    
+    planes = util.planes(triangles)
+    front_facing = tf.squeeze(tf.where(planes[:, 2] > 0), -1)
+    planes = tf.gather(planes, front_facing)
+    triangles = tf.gather(triangles, front_facing)
+    data = (*(tf.gather(data_item, front_facing) for data_item in data),)
 
     tile_size = 32
 
@@ -59,16 +67,16 @@ def render(triangles: tf.Tensor, normals: tf.Tensor, colors: tf.Tensor, width: i
         overlaps = tile_overlaps[col][row]
 
         overlap_triangles = tf.gather(triangles, overlaps)
-        overlap_normals = tf.gather(normals, overlaps)
         overlap_planes = tf.gather(planes, overlaps)
-        overlap_colors = tf.gather(colors, overlaps)
+        overlap_data = [tf.gather(data_item, overlaps) for data_item in data]
 
         return tri.render_triangles(
-            overlap_triangles, overlap_normals, overlap_planes,
+            overlap_triangles, overlap_planes,
             tile_offset, tile_size,
             dtype,
             near_limit, far_limit,
-            shader, overlap_colors,
+            pixel_shader,
+            overlap_data,
             background[tile_offset[0]:tile_offset[0] + tile_size, tile_offset[1]:tile_offset[1] + tile_size],
             background_depth[tile_offset[0]:tile_offset[0] + tile_size, tile_offset[1]:tile_offset[1] + tile_size],
         )
