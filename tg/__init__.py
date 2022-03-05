@@ -3,7 +3,7 @@ import numpy as np
 import tg.util as util
 import tg.triangle as tri
 
-@tf.function
+@tf.function(experimental_relax_shapes=True)
 def render(triangles: tf.Tensor, colors: tf.Tensor, width: int, height: int, near_limit: float, far_limit: float, shader = None, dtype = tf.float32, background = None, background_depth = None):
     triangles = tf.cast(tf.ensure_shape(triangles, (None, 3, 3)), dtype)
     planes = util.planes(triangles)

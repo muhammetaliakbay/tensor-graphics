@@ -2,7 +2,7 @@ import tensorflow as tf
 import tg.util as util
 import numpy as np
 
-@tf.function
+@tf.function(experimental_relax_shapes=True)
 def render_triangles(
     triangles, planes,
     tile_offset, tile_size,
