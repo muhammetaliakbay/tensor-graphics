@@ -11,13 +11,13 @@ def render(triangles: tf.Tensor, data: Iterable[tf.Tensor], width: int, height: 
     if projection is not None:
         triangles = projection(triangles)
 
-    data = (*(tf.cast(tf.ensure_shape(data_item, (None, 3, 3)), dtype) for data_item in data),)
+    data = (*(tf.cast(tf.ensure_shape(data_item, (None, 3, None)), dtype) for data_item in data),)
 
     if vertex_shader is not None:
         (triangles, *data) = vertex_shader(triangles, *data)
     
     planes = util.planes(triangles)
-    front_facing = tf.squeeze(tf.where(planes[:, 2] > 0), -1)
+    front_facing = tf.squeeze(tf.where(planes[:, 2] < 0), -1)
     planes = tf.gather(planes, front_facing)
     triangles = tf.gather(triangles, front_facing)
     data = (*(tf.gather(data_item, front_facing) for data_item in data),)
